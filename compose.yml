@@ -1,0 +1,70 @@
+networks:
+  test-modx:
+    name: network-test-modx
+
+# volumes:
+  # mysql_8_data:
+
+  # php_ini:
+  #   driver: local
+  #   driver_opts:
+  #     type: file
+  #     o: bind
+  #     device: ./configs/php_8_1/php.ini
+
+services:
+  php_8_1:
+    container_name: php_8_1-test-modx
+    build:
+      context: .
+      dockerfile: ./docker/php_8_1/Dockerfile
+    ports:
+      - 9005:9003
+    volumes:
+      # Монтируем php.ini из хоста в контейнер
+      - ./configs/php_8_1/php.ini:/usr/local/etc/php/php.ini
+      # Монтируем папку проекта
+      - ./public:/var/www/test-modx
+      # Монтируем папку логов для xdebug на хосте в контейнер
+      - ./logs/xdebug:/var/log/xdebug
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - test-modx
+    depends_on:
+      - mysql_8_0
+
+  nginx:
+    container_name: nginx-test-modx
+    image: nginx
+    ports:
+      - 80:80
+      - 443:443
+    volumes:
+      # Монтируем папки с сертификатами на хосте в контейнер
+      - ./certs:/etc/nginx/certs
+      # Монтируем default.conf из хоста в контейнер
+      - ./configs/nginx/default.conf:/etc/nginx/conf.d/default.conf
+      #  Монтируем конфигурационный файл nginx.conf с хоста в контейнер
+      - ./configs/nginx/nginx.conf:/etc/nginx/nginx.conf
+      # Монтируем папку проекта
+      - ./public:/var/www/test-modx
+      # Монтируем папку логов на хосте в контейнер
+      - ./logs/nginx:/var/log/nginx
+    networks:
+      - test-modx
+    depends_on:
+      - php_8_1
+      - mysql_8_0
+
+  mysql_8_0:
+    container_name: mysql_8_0-test-modx
+    ports:
+      - 3306:3306
+    image: mysql:8.0
+    volumes:
+      - .databases/mysql_8_0_data:/var/lib/mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+    networks:
+      - test-modx
